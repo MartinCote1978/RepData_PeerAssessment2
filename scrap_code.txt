@@ -1,0 +1,15 @@
+Scrap of code not used:
+
+First, let's look at how many (i.e. frequency) of each type of events occur by building a histogram.
+
+```{r echo=TRUE}
+
+noaa_events_hist <- ggplot(noaa_data, aes(EVTYPE)) +
+  geom_histogram(col="blue") +
+  xlab("Events") +
+  labs(title="Frequency of each event type") +
+  theme_bw()
+
+print(noaa_events_hist)
+
+```

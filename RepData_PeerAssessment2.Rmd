@@ -1,0 +1,170 @@
+---
+title: "NOAA Storm Impacts Analysis for Population's Health and Economy"
+subtitle: "Reproducible Research: Peer Assessment 2"
+author: "Martin Cote"
+date: 2015-03-22
+output: 
+  html_document:
+    keep_md: true
+---
+
+# Synopsis
+
+The analysis of the NOAA storm data is completed by creating 2 plots from data summary of the raw data.  The first plot is created by combining the impacts to population's health (namely casualities) and showing in a descending order, from greatest to lowest, the total of casualties per events' type.  The second plot is obtained by combining all variables related to the economic impacts and showing in a descending order, from greatest to lowest, the total of economic impacts per events' type.
+
+# Data Processing
+
+## Pre-Requisites
+1. The file must be present within the working directory.
+2. No pre-processing is performed to the file downloaded.  In its raw form, the file is a '.csv.bz2' file and will be read from that format.
+3. Installed libraries required are DPLYR, TIDYR and GGPLOT2.
+
+## Reading the NOAA raw data
+
+Loading the necessary libraries and the NOAA raw data (directly obtained from the course website).
+
+```{r echo=TRUE}
+
+# Loading libraries
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+```
+
+
+```{r echo=TRUE, cache=TRUE}
+# This section of code is cached due to the time required to load the original data set.
+
+# Validating that the file is present.
+if ( !("repdata-data-StormData.csv.bz2" %in% dir()) ) {
+  stop("ERROR: Files 'repdata-data-StormData.csv.bz2' do not exist within the working directory.")
+}
+
+# Reading the raw data - time intensive!
+bz_data <- bzfile("repdata-data-StormData.csv.bz2")
+csv_dataframe <- read.csv(bz_data, header=TRUE) # Extremely slow!!
+noaa_data <- tbl_df(csv_dataframe)
+
+# Print overall summary of the data for investigation.
+str(noaa_data)
+#summary(noaa_data)
+
+# Print begining of the data...
+noaa_data
+
+```
+
+## Preparing the data for analysis (i.e. "tidy data")
+
+Creating the variable combining the effect on population's health.
+
+```{r echo=TRUE}
+
+noaa_healthimpacts <- noaa_data %>%
+  mutate(HEALTHIMPACTS = sum(FATALITIES, INJURIES)) %>%
+  select(EVTYPE, STATE, HEALTHIMPACTS, FATALITIES, INJURIES)
+
+```
+
+Creating the variable combining the effect on economy and consequences.
+
+*Note*: Since the PROPDM and CROPDM are expressed in various decades (i.e. sometimes 2.5 is 2.5 billions or 2.5 millions), the data needs to be massaged to express all damages in the same unit basis.
+
+```{r echo=TRUE}
+
+noaa_economicimpacts <- noaa_data %>%
+  mutate(PROPDMGEXP_INT = ifelse(PROPDMGEXP == "B", 1000000000,
+                   ifelse(PROPDMGEXP == "M", 1000000,
+                   ifelse(PROPDMGEXP == "K", 1000,
+                   ifelse(PROPDMGEXP == "H", 100, 0))))
+          ) %>%
+  mutate(CROPDMGEXP_INT = ifelse(CROPDMGEXP == "B", 1000000000,
+                   ifelse(CROPDMGEXP == "M", 1000000,
+                   ifelse(CROPDMGEXP == "K", 1000,
+                   ifelse(CROPDMGEXP == "H", 100, 0))))
+          ) %>%
+  mutate(ECONOMICIMPACTS = sum(PROPDMG * PROPDMGEXP_INT + CROPDMG * CROPDMGEXP_INT)) %>%
+  select(EVTYPE,STATE, ECONOMICIMPACTS, PROPDMG, PROPDMGEXP_INT, CROPDMG, CROPDMGEXP_INT)
+
+```
+
+
+## Performing the exploratory data analysis
+### First question...
+1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+Using a combination of all variables related to population's health, producing a plot showing the total impacts per type of events (due to the number of type of events, a filter is applied to display __only the first 20 positions__).
+
+```{r echo=TRUE}
+
+# Create health impacts summary data
+noaa_healthsummary <- noaa_healthimpacts %>%
+  group_by(EVTYPE) %>%
+  summarise(HEALTHIMPACTS_TOT = sum(HEALTHIMPACTS)) %>%
+  arrange(desc(HEALTHIMPACTS_TOT)) %>%
+  slice(1:20)
+
+# Print overall report
+noaa_healthsummary
+
+```
+
+
+### Second question...
+2. Across the United States, which types of events have the greatest economic consequences?
+
+Using a combination of all variables related to economic impacts, producing a plot showing the total cost per type of events (due to the number of type of events, a filter is applied to display __only the first 20 positions__).
+
+```{r echo=TRUE}
+
+# Prepare the summary
+noaa_economicsummary <- noaa_economicimpacts %>%  
+  group_by(EVTYPE) %>%
+  summarise(EONOMICIMPACTS_TOT = sum(ECONOMICIMPACTS)) %>%
+  arrange(desc(EONOMICIMPACTS_TOT)) %>%
+  slice(1:20)
+
+# Print overall report
+noaa_economicsummary
+
+```
+
+
+# Results
+
+Based on the analysis completed above, the most impactful events, in term of both population and economy are mostly the same and are fairly condensed into the same few types of events.  Those results are clearer when displayed within plots showing those summaries.
+
+Population's Health Impacts:
+```{r echo=TRUE}
+
+# Prepare and print the overall plot
+ggplot(noaa_healthsummary, aes(x=reorder(EVTYPE, HEALTHIMPACTS_TOT), y=HEALTHIMPACTS_TOT)) +
+  geom_histogram(col="blue", stat="identity") + # 'stat="identity" ' required since I specified the 'y' axis data.
+  xlab("Events") +
+  ylab("Total of Casualities") +
+  coord_flip() + # Showing the events name on the Y axis since it's easier to read.
+  labs(title="Casualities by each event type") +
+  theme_bw()
+
+```
+
+Economic Impacts:
+```{r echo=TRUE}
+
+# Prepare and print the overall plot
+ggplot(noaa_economicsummary, aes(x=reorder(EVTYPE, EONOMICIMPACTS_TOT), y=EONOMICIMPACTS_TOT)) +
+  geom_histogram(col="blue", stat="identity") + # 'stat="identity" ' required since I specified the 'y' axis data.
+  xlab("Events") +
+  ylab("Total Economic Impacts (in $)") +
+  coord_flip() + # Showing the events name on the Y axis since it's easier to read.
+  labs(title="Economic Impacts by each event type") +
+  theme_bw()
+
+```
+
+
+
+# References (if applicable)
+1. The [National Weather Service Instruction - Storm Data Preparation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+2. The [NOAA Storm Data FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
