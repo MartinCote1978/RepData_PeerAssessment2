@@ -42,9 +42,8 @@ if ( !("repdata-data-StormData.csv.bz2" %in% dir()) ) {
 }
 
 # Reading the raw data - time intensive!
-# Separating the original code line given since it is more efficient.
-bzfile <- bzfile("repdata-data-StormData.csv.bz2")
-csv_dataframe <- read.csv(bzfile, header=TRUE) # Extremely slow!!
+bz_data <- bzfile("repdata-data-StormData.csv.bz2")
+csv_dataframe <- read.csv(bz_data, header=TRUE) # Extremely slow!!
 noaa_data <- tbl_df(csv_dataframe)
 
 # Print overall summary of the data for investigation.
@@ -63,15 +62,14 @@ Creating the variable combining the effect on population's health.
 ```{r echo=TRUE}
 
 noaa_healthimpacts <- noaa_data %>%
-  mutate(HEALTHIMPACTS = (FATALITIES + INJURIES)) %>%
+  mutate(HEALTHIMPACTS = sum(FATALITIES, INJURIES)) %>%
   select(EVTYPE, STATE, HEALTHIMPACTS, FATALITIES, INJURIES)
 
 ```
 
 Creating the variable combining the effect on economy and consequences.
 
-*Note*: Since the PROPDM and CROPDM are expressed in various decades (i.e. sometimes 2.5 is 2.5 billions or 2.5 millions), the data needs to be massaged to express all damages in the same unit basis.  I have personally chose to have the 'H' character to mean "hundred" in this scenario (since it wasn't specified, as refer to the discussion boards).
-
+*Note*: Since the PROPDM and CROPDM are expressed in various decades (i.e. sometimes 2.5 is 2.5 billions or 2.5 millions), the data needs to be massaged to express all damages in the same unit basis.
 
 ```{r echo=TRUE}
 
@@ -86,7 +84,7 @@ noaa_economicimpacts <- noaa_data %>%
                    ifelse(CROPDMGEXP == "K", 1000,
                    ifelse(CROPDMGEXP == "H", 100, 0))))
           ) %>%
-  mutate(ECONOMICIMPACTS = ((PROPDMG * PROPDMGEXP_INT) + (CROPDMG * CROPDMGEXP_INT) )) %>%
+  mutate(ECONOMICIMPACTS = sum(PROPDMG * PROPDMGEXP_INT + CROPDMG * CROPDMGEXP_INT)) %>%
   select(EVTYPE,STATE, ECONOMICIMPACTS, PROPDMG, PROPDMGEXP_INT, CROPDMG, CROPDMGEXP_INT)
 
 ```
@@ -135,9 +133,9 @@ noaa_economicsummary
 
 # Results
 
-Based on the analysis completed above, the most impactful events, in term of both population and economy are quite different.  Although lower on population's health impacts, the cost to flood/hurricane is greater.  Those results are clearer when displayed within plots showing those summaries.
+Based on the analysis completed above, the most impactful events, in term of both population and economy are mostly the same and are fairly condensed into the same few types of events.  Those results are clearer when displayed within plots showing those summaries.
 
-__Population's Health Impacts:__
+Population's Health Impacts:
 ```{r echo=TRUE}
 
 # Prepare and print the overall plot
@@ -151,7 +149,7 @@ ggplot(noaa_healthsummary, aes(x=reorder(EVTYPE, HEALTHIMPACTS_TOT), y=HEALTHIMP
 
 ```
 
-__Economic Impacts:__
+Economic Impacts:
 ```{r echo=TRUE}
 
 # Prepare and print the overall plot
